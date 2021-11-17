@@ -1,12 +1,14 @@
 from socket import socket, AF_INET, SOCK_DGRAM, SOL_SOCKET, SO_BROADCAST
 
+from data.config_loader import CONFIG
+
 
 class Connection:
     def __init__(self, ip: str, port: int):
         assert ip != None
         assert port != None
         assert port > 0
-        assert len(ip) > 8
+        assert len(ip) > 8 or len(ip) == 0
 
         self.ip = ip
         self.port = port
@@ -35,13 +37,13 @@ class Connection:
         assert dest != None
         assert len(dest) == 2
         assert len(dest[0]) > 8
-        assert len(dest[1]) > 0
+        assert dest[1] > 0
 
         self.socket.sendto(msg, dest)
         return self
 
     def listen(self):
-        response, address = self.socket.recvfrom(2**16)
+        response, address = self.socket.recvfrom(CONFIG["BUFFER_SIZE"])
         return response, address
 
     def close(self):
