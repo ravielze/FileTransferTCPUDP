@@ -32,6 +32,10 @@ class Connection:
         self.socket.settimeout(timeout)
         return self
 
+    def resetTimeout(self):
+        self.socket.settimeout(None)
+        return self
+
     def send(self, msg: bytes, dest: tuple[str, int]):
         assert msg != None
         assert dest != None
