@@ -145,6 +145,9 @@ class Server:
         self.checkClients()
         return self
 
+    def sendFile(self):
+        return self
 
-s = Server().threeWayHandshake().close()
+
+s = Server().threeWayHandshake().sendFile().close()
 # TODO send file

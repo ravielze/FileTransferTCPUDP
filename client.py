@@ -73,6 +73,8 @@ class Client:
         self.waitSYNACK()
         return self
 
+    def receiveFile(self):
+        return self
 
-c = Client().threeWayHandshake().close()
-# TODO c.receiveFile()
+
+c = Client().threeWayHandshake().receiveFile().close()
