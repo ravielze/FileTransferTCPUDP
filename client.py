@@ -29,6 +29,12 @@ class Client:
         result = Segment().fromBytes(response)
         return address, result, result.isValid()
 
+    def sendFlag(self, flags: list[str]):
+        assert self.connection != None
+
+        packet = Segment().setFlag(flags)
+        self.connection.send(packet.getBytes(), self.serverAddress)
+
     def initConnection(self):
         assert self.connection == None
 
@@ -41,8 +47,7 @@ class Client:
         assert self.connection != None
 
         print(f"[!] Broadcasting SYN...")
-        packet = Segment().setFlag(['syn'])
-        self.connection.send(packet.getBytes(), self.serverAddress)
+        self.sendFlag(['syn'])
 
     def waitSYNACK(self):
         assert self.connection != None
@@ -50,8 +55,7 @@ class Client:
         print(f"[!] Waiting SYNACK...")
         _, response, ok = self.listen()
         if ok and response.flag.isAck() and response.flag.isSyn():
-            packet = Segment().setFlag(['ack'])
-            self.connection.send(packet.getBytes(), self.serverAddress)
+            self.sendFlag(['ack'])
             print(f"[!] Handshake OK. Sending ACK to server...")
         else:
             print(f"[!] Integrity Failed! Checksum or Flag error...")

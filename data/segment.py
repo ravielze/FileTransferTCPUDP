@@ -53,6 +53,9 @@ class SegmentFlag:
     def isFin(self):
         return bool(self.bytesValue & self.FIN)
 
+    def isData(self):
+        return not self.isSyn() and not self.isAck() and not self.isFin()
+
     def __str__(self):
         return ''.join(["1" if self.flag[i] else "0" for i in range(3)])
 
@@ -156,5 +159,5 @@ class Segment:
         result += self.data
         return result
 
-    def isValid(self):
+    def isValid(self) -> bool:
         return self.checksum == 0x0000

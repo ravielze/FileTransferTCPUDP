@@ -7,6 +7,7 @@ from socket import error as socketerror
 SERVER_IP = CONFIG['SERVER_IP']
 SERVER_PORT = CONFIG['SERVER_PORT']
 WINDOW_SIZE = CONFIG['WINDOW_SIZE']
+THREEWAY_HANDSHAKE_TIMEOUT = CONFIG['THREEWAY_HANDSHAKE_TIMEOUT']
 
 assert SERVER_IP != None
 assert SERVER_PORT != None
@@ -17,6 +18,11 @@ assert SERVER_PORT > 0
 assert WINDOW_SIZE != None
 assert type(WINDOW_SIZE) is int
 assert WINDOW_SIZE > 0
+
+assert THREEWAY_HANDSHAKE_TIMEOUT != None
+assert (type(THREEWAY_HANDSHAKE_TIMEOUT) is float) or (
+    type(THREEWAY_HANDSHAKE_TIMEOUT) is int)
+assert THREEWAY_HANDSHAKE_TIMEOUT > 0
 
 
 class Server:
@@ -30,7 +36,19 @@ class Server:
 
         response, address = self.connection.listen()
         result = Segment().fromBytes(response)
-        return address, result, result.isValid()
+        return address, result, (result.isValid())
+
+    def listenForSYN(self):
+        assert self.connection != None
+
+        address, response, ok = self.listen()
+        return address, (ok and response.flag.isSyn())
+
+    def listenForACK(self):
+        assert self.connection != None
+
+        address, response, ok = self.listen()
+        return address, (ok and response.flag.isAck())
 
     def initBroadcastServer(self):
         assert self.connection == None
@@ -49,13 +67,19 @@ class Server:
         self.connection.close()
         self.connection = None
 
+    def sendFlag(self, clientAddress: tuple[str, int], flags: list[str]):
+        assert self.connection != None
+
+        packet = Segment().setFlag(flags)
+        self.connection.send(packet.getBytes(), clientAddress)
+
     def listenToClients(self):
         assert self.connection != None
 
         self.connectionList = []
         while True:
-            address, response, ok = self.listen()
-            if (ok and response.flag.isSyn() and not(address in self.connectionList)):
+            address, ok = self.listenForSYN()
+            if (ok and not(address in self.connectionList)):
                 self.connectionList.append(address)
                 print(f"[!] Client ({address[0]}:{address[1]}) found")
                 nextClient = input("[?] Listen more? (y/n) ")
@@ -68,6 +92,7 @@ class Server:
         for each in self.connectionList:
             print(f"{i}. {each[0]}:{each[1]}")
             i += 1
+        print()
 
     def checkClients(self):
         assert self.connection != None
@@ -88,13 +113,12 @@ class Server:
         assert address != None
         assert len(address) == 2
 
-        packet = Segment().setFlag(['syn', 'ack'])
-        self.connection.send(packet.getBytes(), address)
+        self.sendFlag(address, ['syn', 'ack'])
 
-        self.connection.timeout(3)
+        self.connection.timeout(THREEWAY_HANDSHAKE_TIMEOUT)
         try:
-            responseAddress, response, ok = self.listen()
-            if responseAddress[0] == address[0] and responseAddress[1] == address[1] and response.flag.isAck() and ok:
+            responseAddress, ok = self.listenForACK()
+            if (ok and (responseAddress[0] == address[0]) and (responseAddress[1] == address[1])):
                 print(f"[!] Client ({address[0]}:{address[1]}): Handshake OK")
                 self.connection.resetTimeout()
                 return True
