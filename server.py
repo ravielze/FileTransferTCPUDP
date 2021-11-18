@@ -66,6 +66,7 @@ class Server:
 
         self.connection.close()
         self.connection = None
+        return self
 
     def sendFlag(self, clientAddress: tuple[str, int], flags: list[str]):
         assert self.connection != None
@@ -142,9 +143,8 @@ class Server:
         # Three Way Handshake
         self.initConnection()
         self.checkClients()
-        # TODO remove .close() after implementing sending file with gobackn
-        self.close()
+        return self
 
 
-s = Server()
-s.threeWayHandshake()
+s = Server().threeWayHandshake().close()
+# TODO send file

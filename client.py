@@ -65,14 +65,14 @@ class Client:
 
         self.connection.close()
         self.connection = None
+        return self
 
     def threeWayHandshake(self):
         self.initConnection()
         self.broadcastSYN()
         self.waitSYNACK()
-        # TODO remove .close() after implementing sending file with gobackn
-        self.close()
+        return self
 
 
-c = Client()
-c.threeWayHandshake()
+c = Client().threeWayHandshake().close()
+# TODO c.receiveFile()
