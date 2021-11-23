@@ -1,5 +1,6 @@
 from common.parser import Arguments
 from common.connection import Connection
+from common.file import File
 from data.config_loader import CONFIG
 from data.segment import Segment
 
@@ -21,6 +22,7 @@ class Client:
         self.clientAddress = ("127.0.0.1", self.args.port)
         self.serverAddress = (SERVER_IP, SERVER_PORT)
         self.connection = None
+        self.file = File('./config.json')
 
     def listen(self):
         assert self.connection != None
@@ -74,7 +76,17 @@ class Client:
         return self
 
     def receiveFile(self):
-        return self
-
+        print("[!] Receiving File...")
+        reqNumber = 0
+        
+        while True:
+            address, response, ok = self.listen()
+            if ok and address == self.serverAddress:
+                print(f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
+            elif response.flag.isFin():
+                print(f"[!] Successfully received file")
+                return self
+            else:
+                print('')
 
 c = Client().threeWayHandshake().receiveFile().close()
