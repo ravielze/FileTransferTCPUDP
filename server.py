@@ -151,48 +151,53 @@ class Server:
     def sendFile(self):
         print("[!] Sending file...")
         fileSeg = self.file.countSegment()
-        fileBuffer = self.file.fileBuffer()
-        
-        for address in self.connectionList:
-            seqWindow = min(WINDOW_SIZE, fileSeg)
-            seqBase = 0
+        # fileBuffer = self.file.fileBuffer()
 
-            while seqBase < fileSeg:
-                for i in range(seqWindow - seqBase):
-                    # send to client
-                    print(f"[Segment SEQ={seqBase + i + 1}] Sent")
-                    data = Segment()
-                    fileBuffer.seek(32768 * (seqBase + i))
-                    data.setPayload(fileBuffer.read(32768))
-                    data.setSequenceNumber(seqBase + i) 
-                    data.setFlag(["ack"])
-                    self.connection.send(data, address)
+        with open(self.file.path, 'rb') as fileBuffer:
+            for address in self.connectionList:
+                seqWindow = min(WINDOW_SIZE, fileSeg)
+                seqBase = 0
+                print(f'file seg is{fileSeg}')
 
-                for i in range (seqWindow - seqBase):
-                    # receive from client
-                    print(f"[Segment SEQ={seqBase + 1}]", end=' ')
-                    try:
-                        seqBase += 1
-                        responseAddress, ok = self.listenForACK()
-                        if ok and address == responseAddress:
-                            print('Acked')
+                while seqBase < fileSeg:
+                    for i in range(seqWindow - seqBase):
+                        # send to client
+                        print(f"[Segment SEQ={seqBase + i + 1}] Sent")
+                        data = Segment()
+                        fileBuffer.seek(32768 * (seqBase + i))
+                        data.setPayload(fileBuffer.read(32768))
+                        data.setSequenceNumber(seqBase + i)
+                        data.setFlag(["ack"])
+                        self.connection.send(data.getBytes(), address)
+
+                    for i in range(seqWindow - seqBase):
+                        # receive from client
+                        print(f"[Segment SEQ={seqBase + 1}]", end=' ')
+                        try:
                             seqBase += 1
-                            seqWindow = min(WINDOW_SIZE + seqBase, seqWindow)
-                        else:
-                            print('NOT ACKED. Duplicate Ack found')
+                            responseAddress, ok = self.listenForACK()
+                            if ok and address == responseAddress:
+                                print('Acked')
+                                seqBase += 1
+                                seqWindow = min(
+                                    WINDOW_SIZE + seqBase, seqWindow)
+                            else:
+                                print('NOT ACKED. Duplicate Ack found')
+                                break
+                        except socketerror:
+                            print('NOT ACKED. Ack Timeout')
                             break
-                    except socketerror:
-                        print('NOT ACKED. Ack Timeout')
-                        break
-            
-            print(f"[!] Successfully sent file to {address[0]}:{address[1]}")
-            data = Segment()
-            data.setFlag(False, False, True)
-            self.connection.send(data, address)
 
-        return self
-        
-# s = Server().threeWayHandshake().sendFile()
-s = Server().sendFile()
+                print(
+                    f"[!] Successfully sent file to {address[0]}:{address[1]}")
+                data = Segment()
+                data.setFlag(False, False, True)
+                self.connection.send(data, address)
+
+            return self
+
+
+s = Server().threeWayHandshake().sendFile()
+# s = Server().sendFile()
 # s = Server().threeWayHandshake().close()
 # TODO send file
