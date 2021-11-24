@@ -9,6 +9,7 @@ SERVER_IP = CONFIG['SERVER_IP']
 SERVER_PORT = CONFIG['SERVER_PORT']
 WINDOW_SIZE = CONFIG['WINDOW_SIZE']
 THREEWAY_HANDSHAKE_TIMEOUT = CONFIG['THREEWAY_HANDSHAKE_TIMEOUT']
+SEND_METADATA = CONFIG['SEND_METADATA']
 
 assert SERVER_IP != None
 assert SERVER_PORT != None
@@ -25,6 +26,8 @@ assert (type(THREEWAY_HANDSHAKE_TIMEOUT) is float) or (
     type(THREEWAY_HANDSHAKE_TIMEOUT) is int)
 assert THREEWAY_HANDSHAKE_TIMEOUT > 0
 
+assert SEND_METADATA != None
+assert type(SEND_METADATA) is bool
 
 class Server:
     def __init__(self):
@@ -32,7 +35,7 @@ class Server:
             "File Server Program (TCP Over UDP With Go-Back-N)")
         self.connection = None
         # isi path di yang bawah ini
-        self.file = File('./b.pdf')
+        self.file = File('./a.pdf')
 
     def listen(self):
         assert self.connection != None
@@ -63,6 +66,18 @@ class Server:
         assert self.connection == None
 
         self.connection = Connection(SERVER_IP, SERVER_PORT)
+
+    def sendMetadata(self, address: tuple[str, int]):
+        metadata = Segment()
+        data = (bytes(self.fileName, 'utf-8') + b'\x03' + bytes(self.fileExt, 'utf-8'))
+        metadata.setPayload(data)
+        metadata.setFlag(['syn'])
+        self.connection.send(metadata.getBytes(), address)
+
+    def getMetadata(self):
+        pathFile = self.file.path
+        self.fileName = pathFile[pathFile.rfind('/') + 1 : pathFile.rfind('.')]
+        self.fileExt = pathFile[pathFile.rfind('.') :]
 
     def close(self):
         assert self.connection != None
@@ -149,13 +164,17 @@ class Server:
         return self
 
     def sendFile(self):
-        print("[!] Sending file...")
         fileSeg = self.file.countSegment()
         # fileBuffer = self.file.fileBuffer()
 
         with open(self.file.path, 'rb') as fileBuffer:
             # print(fileBuffer.read().decode('utf-8'))
             for address in self.connectionList:
+                print(f"[!] Sending file to {address[0]}:{address[1]}...")
+                if SEND_METADATA:
+                    self.getMetadata()
+                    self.sendMetadata(address) 
+
                 seqWindow = min(WINDOW_SIZE, fileSeg)
                 seqBase = 0
 
@@ -164,7 +183,7 @@ class Server:
                         # send to client
                         print(f"[Segment SEQ={seqBase + i + 1}] Sent")
                         data = Segment()
-                        fileBuffer.seek(32768 * (seqBase + i), 1)
+                        fileBuffer.seek(32768 * (seqBase + i))
                         data.setPayload(fileBuffer.read(32768))
                         data.setSequenceNumber(seqBase + i)
                         data.setFlag(["ack"])

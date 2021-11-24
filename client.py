@@ -1,3 +1,4 @@
+import struct
 from common.parser import Arguments
 from common.connection import Connection
 from common.file import File
@@ -6,6 +7,7 @@ from data.segment import Segment
 
 SERVER_IP = CONFIG['SERVER_IP']
 SERVER_PORT = CONFIG['SERVER_PORT']
+SEND_METADATA = CONFIG['SEND_METADATA']
 
 assert SERVER_IP != None
 assert SERVER_PORT != None
@@ -13,6 +15,8 @@ assert type(SERVER_IP) is str
 assert type(SERVER_PORT) is int
 assert SERVER_PORT > 0
 
+assert SEND_METADATA != None
+assert type(SEND_METADATA) is bool
 
 class Client:
     def __init__(self):
@@ -23,6 +27,7 @@ class Client:
         self.serverAddress = (SERVER_IP, SERVER_PORT)
         self.connection = None
         self.file = File('./config.json')
+        self.path = 'meong.pdf'
 
     def listen(self):
         assert self.connection != None
@@ -62,6 +67,27 @@ class Client:
         else:
             print(f"[!] Integrity Failed! Checksum or Flag error...")
 
+    def getMetadata(self):
+        _, response, ok = self.listen()
+
+        if ok:
+            data = response.data
+            fileName = ''
+            fileExt = ''
+            parseName = True
+            for byte in data:
+                if byte != 0x3 and parseName:
+                    fileName += chr(byte)
+                elif byte == 0x3:
+                    parseName = False
+                else:
+                    fileExt += chr(byte)
+
+            print(f'[!] Filename: {fileName}')
+            print(f'[!] File Extension: {fileExt}')
+        else:
+            print(f'[!] Checksum failed when fetching metadata of file...')
+
     def close(self):
         assert self.connection != None
 
@@ -77,28 +103,30 @@ class Client:
 
     def receiveFile(self):
         print("[!] Receiving File...")
-        reqNumber = 0
-        
-        while True:
-            address, response, ok = self.listen()
-            if ok and address == self.serverAddress:
-                if reqNumber == response.seqNum:
-                    print(f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
-                    ackResponse = Segment()
-                    ackResponse.setFlag(['ack'])
-                    self.connection.send(ackResponse.getBytes(), address)
-                    reqNumber += 1
-                elif response.flag.isFin():
-                    print(f"[!] Successfully received file")
-                    return self
+        if SEND_METADATA:
+            self.getMetadata()
+
+        with open(self.path, 'wb+') as file: 
+            reqNumber = 0
+            while True:
+                address, response, ok = self.listen()
+                if ok and address == self.serverAddress:
+                    if reqNumber == response.seqNum:
+                        print(f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
+                        ackResponse = Segment()
+                        ackResponse.setFlag(['ack'])
+                        self.connection.send(ackResponse.getBytes(), address)
+                        file.write(response.data)
+                        reqNumber += 1
+                    elif response.flag.isFin():
+                        print(f"[!] Successfully received file")
+                        return self
+                    else:
+                        print(f'[Segment SEQ={reqNumber + 1}] Segment damaged. Ack prev sequence number.')
+                elif not ok:
+                    print(
+                        f'[!] [{address}] Checksum failed, response ins {response}')
                 else:
-                    print('error')
-                    # print(
-                        # f"[!] [{address}] Error ({response.seqNum} =/= {reqNumber}), Sequence number not equal, skipping...")
-            elif not ok:
-                print(
-                    f'[!] [{address}] Checksum failed, response ins {response}')
-            else:
-                print(ok, address)
+                    print(ok, address)
 
 c = Client().threeWayHandshake().receiveFile().close()
