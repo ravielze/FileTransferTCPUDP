@@ -17,7 +17,3 @@ class File:
     def countSegment(self):
         fileSize = self.filesize()
         return ceil(fileSize / 32768)
-
-    def fileBuffer(self):
-        with open(self.path, 'rb') as file:
-            return file
