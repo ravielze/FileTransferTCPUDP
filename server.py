@@ -32,7 +32,7 @@ class Server:
             "File Server Program (TCP Over UDP With Go-Back-N)")
         self.connection = None
         # isi path di yang bawah ini
-        self.file = File()
+        self.file = File('./b.pdf')
 
     def listen(self):
         assert self.connection != None
@@ -154,17 +154,17 @@ class Server:
         # fileBuffer = self.file.fileBuffer()
 
         with open(self.file.path, 'rb') as fileBuffer:
+            # print(fileBuffer.read().decode('utf-8'))
             for address in self.connectionList:
                 seqWindow = min(WINDOW_SIZE, fileSeg)
                 seqBase = 0
-                print(f'file seg is{fileSeg}')
 
                 while seqBase < fileSeg:
                     for i in range(seqWindow - seqBase):
                         # send to client
                         print(f"[Segment SEQ={seqBase + i + 1}] Sent")
                         data = Segment()
-                        fileBuffer.seek(32768 * (seqBase + i))
+                        fileBuffer.seek(32768 * (seqBase + i), 1)
                         data.setPayload(fileBuffer.read(32768))
                         data.setSequenceNumber(seqBase + i)
                         data.setFlag(["ack"])
@@ -174,13 +174,12 @@ class Server:
                         # receive from client
                         print(f"[Segment SEQ={seqBase + 1}]", end=' ')
                         try:
-                            seqBase += 1
                             responseAddress, ok = self.listenForACK()
                             if ok and address == responseAddress:
                                 print('Acked')
                                 seqBase += 1
                                 seqWindow = min(
-                                    WINDOW_SIZE + seqBase, seqWindow)
+                                    WINDOW_SIZE + seqBase, fileSeg)
                             else:
                                 print('NOT ACKED. Duplicate Ack found')
                                 break
@@ -191,8 +190,7 @@ class Server:
                 print(
                     f"[!] Successfully sent file to {address[0]}:{address[1]}")
                 data = Segment()
-                data.setFlag(False, False, True)
-                self.connection.send(data, address)
+                self.sendFlag(address, ['fin'])                
 
             return self
 

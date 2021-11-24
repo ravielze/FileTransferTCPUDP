@@ -82,11 +82,23 @@ class Client:
         while True:
             address, response, ok = self.listen()
             if ok and address == self.serverAddress:
-                print(f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
-            elif response.flag.isFin():
-                print(f"[!] Successfully received file")
-                return self
+                if reqNumber == response.seqNum:
+                    print(f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
+                    ackResponse = Segment()
+                    ackResponse.setFlag(['ack'])
+                    self.connection.send(ackResponse.getBytes(), address)
+                    reqNumber += 1
+                elif response.flag.isFin():
+                    print(f"[!] Successfully received file")
+                    return self
+                else:
+                    print('error')
+                    # print(
+                        # f"[!] [{address}] Error ({response.seqNum} =/= {reqNumber}), Sequence number not equal, skipping...")
+            elif not ok:
+                print(
+                    f'[!] [{address}] Checksum failed, response ins {response}')
             else:
-                print('')
+                print(ok, address)
 
 c = Client().threeWayHandshake().receiveFile().close()

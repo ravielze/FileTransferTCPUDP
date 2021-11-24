@@ -90,12 +90,10 @@ class Segment:
 
     def setSequenceNumber(self, seqNum: int):
         self.seqNum = seqNum
-        self.checksum = self.calculateChecksum()
         return self
 
     def setAcknowledgeNumber(self, ackNum: int):
         self.ackNum = ackNum
-        self.checksum = self.calculateChecksum()
         return self
 
     def setFlag(self, flag: list[str]):
@@ -122,7 +120,6 @@ class Segment:
 
     def setPayload(self, data: bytes):
         self.data = data
-        self.checksum = self.calculateChecksum()
         return self
 
     def fromBytes(self, data: bytes):
