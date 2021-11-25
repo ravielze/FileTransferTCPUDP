@@ -112,6 +112,7 @@ class Client:
                             f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
                         ackResponse = Segment()
                         ackResponse.setFlag(['ack'])
+                        ackResponse.setAcknowledgeNumber(reqNumber)
                         self.connection.send(ackResponse.getBytes(), address)
                         file.write(response.data)
                         reqNumber += 1

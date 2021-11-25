@@ -202,16 +202,22 @@ class Server:
                         # receive from client
                         print(f"[Segment SEQ={seqBase + 1}]", end=' ')
                         try:
-                            responseAddress, ok = self.listenForACK()
-                            if ok and address == responseAddress:
-                                print('Acked')
-                                seqBase += 1
-                                seqWindow = min(
-                                    WINDOW_SIZE + seqBase, fileSeg)
+                            responseAddress, response, ok = self.listen()
+                            if ok and address == responseAddress and response.flag.isAck():
+                                if (response.ackNum == seqBase):
+                                    print('Acked')
+                                    seqBase += 1
+                                    seqWindow = min(
+                                        WINDOW_SIZE + seqBase, fileSeg)
+                                else:
+                                    print('NOT ACKED. Duplicate Ack found')
+                            elif responseAddress != address:
+                                print('NOT ACKED. Address does not match')
+                            elif not ok:
+                                print('NOT ACKED. Checksum failed')
                             else:
-                                print('NOT ACKED. Duplicate Ack found')
-                                break
-                        except socketerror:
+                                print('NOT ACKED')
+                        except Exception:
                             print('NOT ACKED. Ack Timeout')
                             break
 

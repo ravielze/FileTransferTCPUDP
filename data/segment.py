@@ -115,7 +115,6 @@ class Segment:
                 newFlag = newFlag.fin()
 
         self.flag = newFlag
-        self.checksum = self.calculateChecksum()
         return self
 
     def setPayload(self, data: bytes):
@@ -123,13 +122,12 @@ class Segment:
         return self
 
     def fromBytes(self, data: bytes):
-
         # IIBxH : 4(seqnum) 4(acknum) 1(flag) 1(padding) 2(checksum)
-        unpacked = struct.unpack("IIBxH", data[0:12])
-        self.seqNum = unpacked[0]
-        self.acknowledgeNumber = unpacked[1]
-        self.flag.setBytes(unpacked[2])
-        self.checksum = unpacked[3]
+
+        self.seqNum = struct.unpack("I", data[0:4])[0]
+        self.ackNum = struct.unpack("I", data[4:8])[0]
+        self.flag.setBytes(struct.unpack("B", data[8:9])[0])
+        self.checksum = struct.unpack("H", data[10:12])[0]
 
         self.data = data[12:]
 
@@ -138,6 +136,7 @@ class Segment:
 
     def getBytes(self):
         result = b''
+        self.checksum = self.calculateChecksum()
 
         # 4
         result += struct.pack("I", self.seqNum)
