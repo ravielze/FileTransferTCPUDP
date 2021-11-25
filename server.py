@@ -72,10 +72,10 @@ class Server:
     def sendMetadata(self, metadata: tuple[str, str], address: tuple[str, int]):
         packet = Segment()
         if (metadata[1] != '-'):
-            data = (bytes(metadata[0], 'utf-8') +
-                    METADATA_SEPARATOR + bytes(metadata[1], 'utf-8'))
+            data = (bytes(metadata[0], 'ascii') +
+                    METADATA_SEPARATOR + bytes(metadata[1], 'ascii'))
         else:
-            data = (bytes(metadata[0], 'utf-8') +
+            data = (bytes(metadata[0], 'ascii') +
                     (METADATA_SEPARATOR*4))
         packet.setPayload(data)
         packet.setFlag(['syn'])
