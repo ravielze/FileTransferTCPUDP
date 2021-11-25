@@ -201,6 +201,7 @@ class Server:
                     for i in range(seqWindow - seqBase):
                         # receive from client
                         print(f"[Segment SEQ={seqBase + 1}]", end=' ')
+                        self.connection.timeout(0.5)
                         try:
                             responseAddress, response, ok = self.listen()
                             if ok and address == responseAddress and response.flag.isAck():
