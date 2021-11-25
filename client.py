@@ -102,31 +102,35 @@ class Client:
         if SEND_METADATA:
             self.getMetadata()
 
-        with open(self.path, 'wb+') as file:
-            reqNumber = 0
-            while True:
-                address, response, ok = self.listen()
-                if ok and address == self.serverAddress:
-                    if reqNumber == response.seqNum:
-                        print(
-                            f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
-                        ackResponse = Segment()
-                        ackResponse.setFlag(['ack'])
-                        ackResponse.setAcknowledgeNumber(reqNumber)
-                        self.connection.send(ackResponse.getBytes(), address)
-                        file.write(response.data)
-                        reqNumber += 1
-                    elif response.flag.isFin():
-                        print(f"[!] Successfully received file")
-                        return self
-                    else:
-                        print(
-                            f'[Segment SEQ={reqNumber + 1}] Segment damaged. Ack prev sequence number.')
-                elif not ok:
+        fileData = dict()
+        reqNumber = 0
+        while True:
+            address, response, ok = self.listen()
+            if ok and address == self.serverAddress:
+                if reqNumber == response.seqNum:
                     print(
-                        f'[!] [{address}] Checksum failed, response ins {response}')
+                        f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
+                    ackResponse = Segment()
+                    ackResponse.setFlag(['ack'])
+                    ackResponse.setAcknowledgeNumber(reqNumber)
+                    self.connection.send(ackResponse.getBytes(), address)
+                    fileData[reqNumber] = response.data
+                    reqNumber += 1
+                elif response.flag.isFin():
+                    print(f"[!] Successfully received file")
+                    with open(self.path, 'wb+') as file:
+                        for key in fileData.keys():
+                            file.write(fileData[key])
+                        return self
                 else:
-                    print(ok, address)
+                    print(
+                        f'[Segment SEQ={reqNumber + 1}] Segment damaged. Ack prev sequence number.')
+                    reqNumber = response.ackNum
+            elif not ok:
+                print(
+                    f'[!] [{address}] Checksum failed, response ins {response}')
+            else:
+                print(ok, address)
 
 
 c = Client().threeWayHandshake().receiveFile().close()

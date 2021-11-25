@@ -174,6 +174,7 @@ class Server:
     def sendFile(self):
         fileSeg = self.file.countSegment()
 
+        self.connection.timeout(0.11)
         with open(self.file.path, 'rb') as fileBuffer:
             for address in self.connectionList:
                 print(f"[!] Sending file to {address[0]}:{address[1]}...")
@@ -195,13 +196,13 @@ class Server:
                         fileBuffer.seek(32768 * (seqBase + i))
                         data.setPayload(fileBuffer.read(32768))
                         data.setSequenceNumber(seqBase + i)
+                        data.setAcknowledgeNumber(seqBase)
                         data.setFlag(["ack"])
                         self.connection.send(data.getBytes(), address)
 
                     for i in range(seqWindow - seqBase):
                         # receive from client
                         print(f"[Segment SEQ={seqBase + 1}]", end=' ')
-                        self.connection.timeout(0.5)
                         try:
                             responseAddress, response, ok = self.listen()
                             if ok and address == responseAddress and response.flag.isAck():
