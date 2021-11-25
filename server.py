@@ -28,14 +28,16 @@ assert THREEWAY_HANDSHAKE_TIMEOUT > 0
 
 assert SEND_METADATA != None
 assert type(SEND_METADATA) is bool
+METADATA_SEPARATOR = b'\x03'
+
 
 class Server:
     def __init__(self):
         self.args = Arguments(
-            "File Server Program (TCP Over UDP With Go-Back-N)")
+            "File Server Program (TCP Over UDP With Go-Back-N)").add("path", str, "Path to the file will be sent.")
         self.connection = None
         # isi path di yang bawah ini
-        self.file = File('./a.pdf')
+        self.file = File(self.args.path)
 
     def listen(self):
         assert self.connection != None
@@ -67,17 +69,23 @@ class Server:
 
         self.connection = Connection(SERVER_IP, SERVER_PORT)
 
-    def sendMetadata(self, address: tuple[str, int]):
-        metadata = Segment()
-        data = (bytes(self.fileName, 'utf-8') + b'\x03' + bytes(self.fileExt, 'utf-8'))
-        metadata.setPayload(data)
-        metadata.setFlag(['syn'])
-        self.connection.send(metadata.getBytes(), address)
+    def sendMetadata(self, metadata: tuple[str, str], address: tuple[str, int]):
+        packet = Segment()
+        if (metadata[1] != '-'):
+            data = (bytes(metadata[0], 'utf-8') +
+                    METADATA_SEPARATOR + bytes(metadata[1], 'utf-8'))
+        else:
+            data = (bytes(metadata[0], 'utf-8') +
+                    (METADATA_SEPARATOR*4))
+        packet.setPayload(data)
+        packet.setFlag(['syn'])
+        self.connection.send(packet.getBytes(), address)
 
-    def getMetadata(self):
+    def getMetadata(self) -> tuple[str, str]:
         pathFile = self.file.path
-        self.fileName = pathFile[pathFile.rfind('/') + 1 : pathFile.rfind('.')]
-        self.fileExt = pathFile[pathFile.rfind('.') :]
+        fileName = pathFile[pathFile.rfind('/') + 1: pathFile.rfind('.')]
+        fileExt = pathFile[pathFile.rfind('.'):]
+        return [fileName, fileExt]
 
     def close(self):
         assert self.connection != None
@@ -165,15 +173,16 @@ class Server:
 
     def sendFile(self):
         fileSeg = self.file.countSegment()
-        # fileBuffer = self.file.fileBuffer()
 
         with open(self.file.path, 'rb') as fileBuffer:
-            # print(fileBuffer.read().decode('utf-8'))
             for address in self.connectionList:
                 print(f"[!] Sending file to {address[0]}:{address[1]}...")
                 if SEND_METADATA:
-                    self.getMetadata()
-                    self.sendMetadata(address) 
+                    print(
+                        f"[!] Sending metadata...")
+                    metadata = self.getMetadata()
+                    self.sendMetadata(metadata, address)
+                print(f"[!] Sending file content...")
 
                 seqWindow = min(WINDOW_SIZE, fileSeg)
                 seqBase = 0
@@ -209,12 +218,9 @@ class Server:
                 print(
                     f"[!] Successfully sent file to {address[0]}:{address[1]}")
                 data = Segment()
-                self.sendFlag(address, ['fin'])                
+                self.sendFlag(address, ['fin'])
 
             return self
 
 
 s = Server().threeWayHandshake().sendFile()
-# s = Server().sendFile()
-# s = Server().threeWayHandshake().close()
-# TODO send file

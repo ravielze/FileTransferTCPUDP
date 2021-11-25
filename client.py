@@ -1,7 +1,5 @@
-import struct
 from common.parser import Arguments
 from common.connection import Connection
-from common.file import File
 from data.config_loader import CONFIG
 from data.segment import Segment
 
@@ -17,17 +15,18 @@ assert SERVER_PORT > 0
 
 assert SEND_METADATA != None
 assert type(SEND_METADATA) is bool
+METADATA_SEPARATOR = 0x3
+
 
 class Client:
     def __init__(self):
         self.args = Arguments(
-            "Client Program (TCP Over UDP With Go-Back-N)").add("port", int, "Client Port.")
+            "Client Program (TCP Over UDP With Go-Back-N)").add("port", int, "Client Port.").add("path", str, "Path file will be saved.")
 
         self.clientAddress = ("127.0.0.1", self.args.port)
         self.serverAddress = (SERVER_IP, SERVER_PORT)
         self.connection = None
-        self.file = File('./config.json')
-        self.path = 'meong.pdf'
+        self.path = self.args.path
 
     def listen(self):
         assert self.connection != None
@@ -71,17 +70,14 @@ class Client:
         _, response, ok = self.listen()
 
         if ok:
-            data = response.data
-            fileName = ''
-            fileExt = ''
-            parseName = True
-            for byte in data:
-                if byte != 0x3 and parseName:
-                    fileName += chr(byte)
-                elif byte == 0x3:
-                    parseName = False
-                else:
-                    fileExt += chr(byte)
+            packetData = response.data
+            i = 0
+            for byte in packetData:
+                i += 1
+                if byte == METADATA_SEPARATOR:
+                    break
+            fileName = str(packetData[0:(i-1)], 'ascii')
+            fileExt = str(packetData[i:len(packetData)], 'ascii')
 
             print(f'[!] Filename: {fileName}')
             print(f'[!] File Extension: {fileExt}')
@@ -106,13 +102,14 @@ class Client:
         if SEND_METADATA:
             self.getMetadata()
 
-        with open(self.path, 'wb+') as file: 
+        with open(self.path, 'wb+') as file:
             reqNumber = 0
             while True:
                 address, response, ok = self.listen()
                 if ok and address == self.serverAddress:
                     if reqNumber == response.seqNum:
-                        print(f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
+                        print(
+                            f"[Segment SEQ={reqNumber + 1}] Received, Ack sent")
                         ackResponse = Segment()
                         ackResponse.setFlag(['ack'])
                         self.connection.send(ackResponse.getBytes(), address)
@@ -122,11 +119,13 @@ class Client:
                         print(f"[!] Successfully received file")
                         return self
                     else:
-                        print(f'[Segment SEQ={reqNumber + 1}] Segment damaged. Ack prev sequence number.')
+                        print(
+                            f'[Segment SEQ={reqNumber + 1}] Segment damaged. Ack prev sequence number.')
                 elif not ok:
                     print(
                         f'[!] [{address}] Checksum failed, response ins {response}')
                 else:
                     print(ok, address)
+
 
 c = Client().threeWayHandshake().receiveFile().close()
